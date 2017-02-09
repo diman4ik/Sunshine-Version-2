@@ -2,10 +2,13 @@ package com.example.android.sunshine.app;
 
 
 import android.annotation.TargetApi;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.v4.app.Fragment;
 import android.text.format.Time;
 import android.util.Log;
@@ -15,6 +18,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
@@ -31,7 +35,6 @@ import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 
 public class ForecastFragment extends Fragment {
@@ -49,19 +52,28 @@ public class ForecastFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-
-        /*List<String> forecasts = new ArrayList<String>() {{
-            add("Today - Sunny - 88/63");
-            add("Today - Foggy - 70/40");
-        }};*/
-
         adapter = new ArrayAdapter<String>(getActivity(), R.layout.list_item_forecast, R.id.list_item_forecast_textview, new ArrayList<String>());
         View rootView = inflater.inflate(R.layout.fragment_main, container, false);
 
         ListView lv = (ListView)rootView.findViewById(R.id.listview_forecast);
         lv.setAdapter(adapter);
 
+        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int index, long l) {
+                Intent detail = new Intent(getActivity(), DetailActivity.class);
+                detail.putExtra(Intent.EXTRA_TEXT, adapter.getItem(index));
+                startActivity(detail);
+            }
+        });
+
         return rootView;
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        updateWeather();
     }
 
     @Override
@@ -79,14 +91,44 @@ public class ForecastFragment extends Fragment {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_refresh) {
-            FetchWeatherTask task = new FetchWeatherTask();
-            task.execute("94043");
+            updateWeather();
+            return true;
+        }
+        else if(id == R.id.action_map) {
+            openPreferredLocationInMap();
             return true;
         }
 
         return super.onOptionsItemSelected(item);
     }
 
+    private void openPreferredLocationInMap() {
+        SharedPreferences sharedPrefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        String location = sharedPrefs.getString(getString(R.string.pref_location_key), getString(R.string.pref_location_default));
+        // Using the URI scheme for showing a location found on a map.  This super-handy
+        // intent can is detailed in the "Common Intents" page of Android's developer site:
+        // http://developer.android.com/guide/components/intents-common.html#Maps
+        Uri geoLocation = Uri.parse("geo:0,0?").buildUpon()
+                .appendQueryParameter("q", location)
+                .build();
+
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setData(geoLocation);
+
+        if (intent.resolveActivity(getActivity().getPackageManager()) != null) {
+            startActivity(intent);
+        } else {
+            Log.d(LOG_TAG, "Couldn't call " + location + ", no receiving apps installed!");
+        }
+    }
+
+    void updateWeather() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        String code = prefs.getString(getString(R.string.pref_location_key), getString(R.string.pref_location_default));
+
+        FetchWeatherTask task = new FetchWeatherTask();
+        task.execute(code);
+    }
 
     public String readWeatherResponseFromServer(String postalCode) {
         // These two need to be declared outside the try/catch
@@ -113,7 +155,7 @@ public class ForecastFragment extends Fragment {
                     .appendQueryParameter("mode", "json")
                     .appendQueryParameter("units", "metric")
                     .appendQueryParameter("cnt", "7")
-                    .appendQueryParameter("appid", "08dc84358b71dc42303cf5dce513cc58");
+                    .appendQueryParameter("appid", BuildConfig.OPEN_WEATHER_MAP_API_KEY /*"08dc84358b71dc42303cf5dce513cc58"*/);
             URL url = new URL(builder.build().toString()); //new URL("http://api.openweathermap.org/data/2.5/forecast/daily?q=94043&mode=json&units=metric&cnt=7&appid=" + getString(R.string.api_key));
 
             // Create the request to OpenWeatherMap, and open the connection
@@ -177,7 +219,12 @@ public class ForecastFragment extends Fragment {
     /**
      * Prepare the weather high/lows for presentation.
      */
-    private String formatHighLows(double high, double low) {
+    private String formatHighLows(String unit, double high, double low) {
+        if(unit.equals(getString(R.string.pref_units_imperial))) {
+            high = high*1.8 + 32;
+            low = low*1.8 + 32;
+        }
+
         // For presentation, assume the user doesn't care about tenths of a degree.
         long roundedHigh = Math.round(high);
         long roundedLow = Math.round(low);
@@ -221,6 +268,9 @@ public class ForecastFragment extends Fragment {
         // we start at the day returned by local time. Otherwise this is a mess.
         int julianStartDay = Time.getJulianDay(System.currentTimeMillis(), dayTime.gmtoff);
 
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        String metric = prefs.getString(getString(R.string.pref_metric_key), getString(R.string.pref_metric_default));
+
         // now we work exclusively in UTC
         dayTime = new Time();
 
@@ -252,7 +302,7 @@ public class ForecastFragment extends Fragment {
             double high = temperatureObject.getDouble(OWM_MAX);
             double low = temperatureObject.getDouble(OWM_MIN);
 
-            highAndLow = formatHighLows(high, low);
+            highAndLow = formatHighLows(metric, high, low);
             resultStrs[i] = day + " - " + description + " - " + highAndLow;
         }
 

@@ -6,4 +6,16 @@
     <string name="action_settings">Settings</string>
     <string name="action_refresh">Refresh</string>
     <string name="api_key">08dc84358b71dc42303cf5dce513cc58</string>
+    <string name="title_activity_detail">DetailActivity</string>
+    <string name="title_activity_settings">SettingsActivity</string>
+    <string name="pref_location_label">Location</string>
+    <string name="pref_location_key">location</string>
+    <string name="pref_location_default">94043</string>
+    <string name="pref_metric_unit">Temperature Measure</string>
+    <string name="pref_metric_key">Measure</string>
+    <string name="pref_metric_default">Metric</string>
+    <string name="pref_units_metric">Metric</string>
+    <string name="pref_units_imperial">Imperial</string>
+    <string name="action_map">View selected location on map</string>
+    <string name="action_share">Share</string>
 </resources>
