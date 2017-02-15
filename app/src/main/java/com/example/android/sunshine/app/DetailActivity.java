@@ -16,6 +16,11 @@
 
 package com.example.android.sunshine.app;
 
+import android.database.Cursor;
+import android.net.Uri;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.CursorLoader;
+import android.support.v4.content.Loader;
 import android.support.v7.app.ActionBarActivity;
 import android.content.Intent;
 import android.os.Bundle;
@@ -30,6 +35,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
+import com.example.android.sunshine.app.data.WeatherContract;
 
 public class DetailActivity extends ActionBarActivity {
 
@@ -71,12 +78,16 @@ public class DetailActivity extends ActionBarActivity {
     /**
      * A placeholder fragment containing a simple view.
      */
-    public static class DetailFragment extends Fragment {
+    public static class DetailFragment extends Fragment  implements LoaderManager.LoaderCallbacks<Cursor> {
 
         private static final String LOG_TAG = DetailFragment.class.getSimpleName();
 
         private static final String FORECAST_SHARE_HASHTAG = " #SunshineApp";
-        private String mForecastStr;
+        private String mForecastUriStr;
+
+        TextView mTextView;
+        String mForecast;
+        ShareActionProvider mShareActionProvider;
 
         public DetailFragment() {
             setHasOptionsMenu(true);
@@ -90,13 +101,19 @@ public class DetailActivity extends ActionBarActivity {
 
             // The detail Activity called via intent.  Inspect the intent for forecast data.
             Intent intent = getActivity().getIntent();
-            if (intent != null && intent.hasExtra(Intent.EXTRA_TEXT)) {
-                mForecastStr = intent.getStringExtra(Intent.EXTRA_TEXT);
-                ((TextView) rootView.findViewById(R.id.detail_text))
-                        .setText(mForecastStr);
+            if(intent != null) {
+                mForecastUriStr = intent.getDataString();
+                mTextView =((TextView) rootView.findViewById(R.id.detail_text));
+                mTextView.setText(mForecastUriStr);
             }
 
             return rootView;
+        }
+
+        @Override
+        public void onActivityCreated(Bundle savedInstanceState) {
+            getLoaderManager().initLoader(ForecastFragment.FORECAST_LOADER, null, this);
+            super.onActivityCreated(savedInstanceState);
         }
 
         @Override
@@ -108,13 +125,14 @@ public class DetailActivity extends ActionBarActivity {
             MenuItem menuItem = menu.findItem(R.id.action_share);
 
             // Get the provider and hold onto it to set/change the share intent.
-            ShareActionProvider mShareActionProvider =
-                    (ShareActionProvider) MenuItemCompat.getActionProvider(menuItem);
+            mShareActionProvider = (ShareActionProvider) MenuItemCompat.getActionProvider(menuItem);
 
             // Attach an intent to this ShareActionProvider.  You can update this at any time,
             // like when the user selects a new piece of data they might like to share.
             if (mShareActionProvider != null ) {
-                mShareActionProvider.setShareIntent(createShareForecastIntent());
+                if(mForecast != null) {
+                    mShareActionProvider.setShareIntent(createShareForecastIntent());
+                }
             } else {
                 Log.d(LOG_TAG, "Share Action Provider is null?");
             }
@@ -124,9 +142,33 @@ public class DetailActivity extends ActionBarActivity {
             Intent shareIntent = new Intent(Intent.ACTION_SEND);
             shareIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
             shareIntent.setType("text/plain");
-            shareIntent.putExtra(Intent.EXTRA_TEXT,
-                    mForecastStr + FORECAST_SHARE_HASHTAG);
+            shareIntent.putExtra(Intent.EXTRA_TEXT, mForecast + FORECAST_SHARE_HASHTAG);
             return shareIntent;
+        }
+
+        @Override
+        public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+            return new CursorLoader(getActivity(),
+                    Uri.parse(mForecastUriStr),
+                    ForecastFragment.FORECAST_COLUMNS,
+                    null,
+                    null,
+                    null);
+        }
+
+        @Override
+        public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+            data.moveToFirst();
+            //mForecast = Utility.convertCursorRowToUXFormat(getActivity(), data);
+            mTextView.setText(mForecast);
+
+            if(mShareActionProvider != null) {
+                mShareActionProvider.setShareIntent(createShareForecastIntent());
+            }
+        }
+
+        @Override
+        public void onLoaderReset(Loader<Cursor> loader) {
         }
     }
 }
