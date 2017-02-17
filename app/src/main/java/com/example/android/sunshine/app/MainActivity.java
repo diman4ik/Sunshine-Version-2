@@ -25,6 +25,8 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import com.android.debug.hv.ViewServer;
+
 public class MainActivity extends ActionBarActivity {
 
     private final String LOG_TAG = MainActivity.class.getSimpleName();
@@ -41,6 +43,13 @@ public class MainActivity extends ActionBarActivity {
                     .add(R.id.container, new ForecastFragment(), FORECASTFRAGMENT_TAG)
                     .commit();
         }
+
+        ViewServer.get(this).addWindow(this);
+    }
+
+    public void onDestroy() {
+        super.onDestroy();
+        ViewServer.get(this).removeWindow(this);
     }
 
     @Override
@@ -53,6 +62,8 @@ public class MainActivity extends ActionBarActivity {
             ff.onLocationChanged();
             mLocation = location;
         }
+
+        ViewServer.get(this).setFocusedWindow(this);
     }
 
     @Override
